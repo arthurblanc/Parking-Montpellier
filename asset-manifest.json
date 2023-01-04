@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/Parking-Montpellier/static/css/main.7eb4dfe7.css",
+    "main.js": "/Parking-Montpellier/static/js/main.390788b5.js",
+    "index.html": "/Parking-Montpellier/index.html",
+    "main.7eb4dfe7.css.map": "/Parking-Montpellier/static/css/main.7eb4dfe7.css.map",
+    "main.390788b5.js.map": "/Parking-Montpellier/static/js/main.390788b5.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.7eb4dfe7.css",
+    "static/js/main.390788b5.js"
+  ]
+}
