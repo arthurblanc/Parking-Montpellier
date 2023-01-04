@@ -6,11 +6,12 @@ function App() {
 	const [parkingWithLocation, setParkingWithLocation] = useState([]);
 
 	useEffect(() => {
+		const corsProxy = "https://corsproxy.io/?";
 		const parkingUrl =
 			"https://data.montpellier3m.fr/api/3/action/package_show?id=90e17b94-989f-4d66-83f4-766d4587bec2&utm_source=Site%20internet&utm_campaign=Clic%20sur%20%3A%20https%3A//data.montpellier3m.fr/api/3/action/package_show/90e17b94-989f-4d66-83f4-766d4587bec2&utm_term=https%3A//data.montpellier3m.fr/api/3/action/package_show/90e17b94-989f-4d66-83f4-766d4587bec2";
 		const geoJsonUrl = "https://data.montpellier3m.fr/sites/default/files/ressources/VilleMTP_MTP_ParkingOuv.geojson";
 		function fetchGeoJson() {
-			return fetch(geoJsonUrl)
+			return fetch(`${corsProxy}${geoJsonUrl}`)
 				.then((response) => response.json())
 				.then((geoJson) => {
 					console.log(geoJson);
@@ -22,7 +23,7 @@ function App() {
 		}
 
 		function fetchParkingXML() {
-			return fetch(parkingUrl)
+			return fetch(`${corsProxy}${parkingUrl}`)
 				.then((response) => response.json())
 				.then((parkingXML) => {
 					return parkingXML;
@@ -36,7 +37,7 @@ function App() {
 			const parkingData = parkingXML.result.resources.filter((item) => item.id !== "8d478025-4b42-4812-ac80-7a3543e165f7" && item.id !== "3daec4b2-cd07-448d-a9cd-ca18140ce566");
 			console.log(parkingXML);
 			const parkingPromises = parkingData.map((item) => {
-				return fetch(item.url)
+				return fetch(`${corsProxy}${item.url}`)
 					.then((response) => response.text())
 					.then((xml) => {
 						if (xml !== "") {
