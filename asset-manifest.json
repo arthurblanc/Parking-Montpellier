@@ -1,14 +1,14 @@
 {
   "files": {
-    "main.css": "/Parking-Montpellier/static/css/main.4aea3eeb.css",
-    "main.js": "/Parking-Montpellier/static/js/main.45f3fe1e.js",
+    "main.css": "/Parking-Montpellier/static/css/main.f3f89ce3.css",
+    "main.js": "/Parking-Montpellier/static/js/main.b4e42f5d.js",
     "static/media/loading-car.gif": "/Parking-Montpellier/static/media/loading-car.01766e6c44c78959527e.gif",
     "index.html": "/Parking-Montpellier/index.html",
-    "main.4aea3eeb.css.map": "/Parking-Montpellier/static/css/main.4aea3eeb.css.map",
-    "main.45f3fe1e.js.map": "/Parking-Montpellier/static/js/main.45f3fe1e.js.map"
+    "main.f3f89ce3.css.map": "/Parking-Montpellier/static/css/main.f3f89ce3.css.map",
+    "main.b4e42f5d.js.map": "/Parking-Montpellier/static/js/main.b4e42f5d.js.map"
   },
   "entrypoints": [
-    "static/css/main.4aea3eeb.css",
-    "static/js/main.45f3fe1e.js"
+    "static/css/main.f3f89ce3.css",
+    "static/js/main.b4e42f5d.js"
   ]
 }
