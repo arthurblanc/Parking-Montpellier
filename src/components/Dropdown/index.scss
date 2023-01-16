@@ -1,38 +1,32 @@
 .dropdown {
-	&-container {
-		text-align: left;
-	}
+	text-align: left;
 
-	&-label-text {
+	&__label {
 		margin-bottom: 8px;
-		color: #333;
+		color: var(--secondary-text-color);
 		font-weight: 600;
 	}
 
-	&-button-container {
-		position: relative;
-	}
-
-	&-button {
+	&__button {
 		padding: 12px 16px;
 		border: 1px solid #ccc;
 		border-radius: 4px;
 		outline: none;
-		background-color: white;
-		color: #333;
+		background-color: var(--secondary-background-color);
+		color: var(--secondary-text-color);
 		font-weight: 700;
 		cursor: pointer;
 
 		&:hover {
-			background-color: #eee;
+			background-color: var(--background-color);
 		}
 
-		&:active {
-			background-color: #ddd;
+		&-container {
+			position: relative;
 		}
 	}
 
-	&-options-container {
+	&__options-container {
 		z-index: 1;
 		position: absolute;
 		top: -12px;
@@ -40,26 +34,21 @@
 		width: max-content;
 		border: 1px solid #ccc;
 		border-radius: 4px;
-		background-color: white;
+		background-color: var(--secondary-background-color);
 		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 	}
 
-	&-option {
+	&__option {
 		padding: 12px 16px;
-		color: #333;
+		color: var(--secondary-text-color);
 		cursor: pointer;
 
-		&.dropdown-option-selected {
-			color: #333;
+		&.selected {
 			font-weight: 700;
 		}
 
 		&:hover {
-			background-color: #eee;
-		}
-
-		&:active {
-			background-color: #ddd;
+			background-color: var(--background-color);
 		}
 	}
 }
