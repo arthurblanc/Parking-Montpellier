@@ -101,6 +101,10 @@ function App() {
 		fetchData();
 	}, []);
 
+	useEffect(() => {
+		console.log(allParkingsData);
+	}, [allParkingsData]);
+
 	const fetchData = async () => {
 		// Set isLoading to true
 		setIsLoading(true);
@@ -230,10 +234,16 @@ function App() {
 				const compareValue = direction === "asc" ? 1 : -1;
 
 				if (typeof key === "string") {
-					// If the key is a string, compare the values of the corresponding properties
+					// If the key is a string, compare the values directly
 					const keyValA = /^\d+$/.test(a[key].value) ? Number(a[key].value) : a[key].value;
 					const keyValB = /^\d+$/.test(b[key].value) ? Number(b[key].value) : b[key].value;
-					return keyValA.localeCompare(keyValB) * compareValue;
+					if (keyValA < keyValB) {
+						return -1 * compareValue;
+					}
+					if (keyValA > keyValB) {
+						return 1 * compareValue;
+					}
+					return 0;
 				} else if (Array.isArray(key)) {
 					// If the key is an array, compare the values of the nested properties
 					const [firstKey, secondKey] = key;
