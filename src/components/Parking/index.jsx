@@ -8,8 +8,11 @@ import "./index.scss";
 
 // Function that converts a date string to a human-readable time difference (e.g. "Il y a 2 heures" for a date 2 hours ago)
 const dateConverter = (dateString) => {
+	const PARIS_TIMEZONE_OFFSET = 120; // Time difference between Paris and UTC in minutes
+	const date = new Date(dateString);
+	const utcDate = new Date(date.getTime() - PARIS_TIMEZONE_OFFSET * 60 * 1000); // Convert UTC date to Paris date
 	// Calculate the difference between the current date and the passed date
-	const dateDifference = new Date() - new Date(dateString);
+	const dateDifference = new Date() - utcDate;
 	// Array of objects containing the unit of time (e.g. "jour", "heure", "minute") and the corresponding value in milliseconds
 	const units = [
 		{ unit: "jour", value: 1000 * 60 * 60 * 24 },
@@ -29,15 +32,62 @@ const dateConverter = (dateString) => {
 	}
 };
 
+// Component to render ParkingInfo with key and value
+const ParkingInfo = ({ title, value, unit }) => {
+	// This function capitalizes the first letter of a string.
+	const capitalizeFirstLetter = (str) => {
+		return str.charAt(0).toUpperCase() + str.slice(1);
+	};
+
+	// If the value is null, undefined, "NC", "_" or less than 1, return null.
+	if (!value || value === "null" || value === "undefined" || value === "NC" || value === "_" || value < 1) {
+		return null;
+	}
+
+	let formattedValue = value;
+
+	// If the value is a string, capitalize its first letter.
+	if (typeof value === "string") {
+		formattedValue = capitalizeFirstLetter(value);
+	}
+
+	// If the value is an array, filter out "feeCharged" items and translate "car" and "moped" to "Voiture" and "Moto" respectively.
+	if (Array.isArray(value)) {
+		value = value.filter((item) => item !== "feeCharged");
+		value = value.map((item) => {
+			if (item === "car") {
+				return "Voiture";
+			} else if (item === "moped") {
+				return "Moto";
+			} else {
+				return item;
+			}
+		});
+
+		// Capitalize the first letter of each item and join them with ", ".
+		formattedValue = value.map((item) => capitalizeFirstLetter(item)).join(", ");
+	}
+
+	// Return a div with a title and formatted value with the specified unit.
+	return (
+		<div className="parking-item__info">
+			<p className="parking-item__info-key">{title} :</p>
+			<p className="parking-item__info-value">
+				{formattedValue} {unit}
+			</p>
+		</div>
+	);
+};
+
 function Parking({ parking, toggleFavorite }) {
 	const [isOpen, setIsOpen] = useState(false);
 	const contentRef = useRef(null);
-	const [lastUpdate, setLastUpdate] = useState(dateConverter(parking.realTimeDateTime));
+	const [lastUpdate, setLastUpdate] = useState(parking.realTimeData?.status.metadata.timestamp ? dateConverter(parking.realTimeData?.status.metadata.timestamp.value) : "");
 
 	// UseEffect to update the lastUpdate state every minute
 	useEffect(() => {
 		const interval = setInterval(() => {
-			setLastUpdate(dateConverter(parking.realTimeDateTime));
+			setLastUpdate(parking.realTimeData?.status.metadata.timestamp ? dateConverter(parking.realTimeData?.status.metadata.timestamp.value) : "");
 		}, 1000 * 60);
 		// Cleanup function to clear the interval when component unmounts
 		return () => clearInterval(interval);
@@ -56,37 +106,38 @@ function Parking({ parking, toggleFavorite }) {
 		return value >= 50 ? "#009900" : value >= 15 ? "#FFA500" : "#FF0000";
 	};
 
-	// function to render paragraph with key and value
-	const renderParagraph = (key, value) => {
-		return (
-			<div className="parking-item__info">
-				<p className="parking-item__info-key">{key}</p>
-				<p className="parking-item__info-value">{value}</p>
-			</div>
-		);
-	};
-
 	return (
 		<article className="parking-item">
-			<div className="parking-item__title-container" style={parking.realTimeFreePercentage !== null ? { backgroundColor: getColor(parking.realTimeFreePercentage) } : {}}>
-				<h3 className={"parking-item__title "}>{parking.modName ? parking.modName : parking.nom}</h3>
+			<div
+				className="parking-item__title-container"
+				style={
+					parking.realTimeData?.availableSpotPercentage.value && parking.realTimeData?.isLastUpdateLessThanOneHour?.value === true
+						? { backgroundColor: getColor(parking.realTimeData.availableSpotPercentage.value) }
+						: {}
+				}>
+				<h3 className={"parking-item__title "}>{parking.extraData?.modName ? parking.extraData.modName : parking.name.value}</h3>
 			</div>
 
-			{parking.realTimeFree !== null && parking.realTimeFree > 0 && parking.realTimeStatus === "Open" && parking.realTimeTotal > 0
-				? renderParagraph("Places libres :", `${parking.realTimeFree} / ${parking.realTimeTotal} (${parking.realTimeFreePercentage}%)`)
-				: renderParagraph("Total places :", parking.realTimeTotal)}
+			{parking.realTimeData && parking.realTimeData.status.value === "Open" && parking.realTimeData.isLastUpdateLessThanOneHour.value === true ? (
+				<ParkingInfo title="Places libres" value={`${parking.realTimeData.availableSpotNumber.value} / ${parking.realTimeData.totalSpotNumber.value} (${parking.realTimeData.availableSpotPercentage.value}%)`} />
+			) : (
+				<ParkingInfo title="Total places" value={parking.parkingSpaceNumber.value} />
+			)}
 
-			{parking.distance !== null && parking.distance > 0 && renderParagraph("Distance :", parking.distance < 1000 ? Math.round(parking.distance) + " m" : (parking.distance / 1000).toFixed(2) + " km")}
+			{parking.distance?.value > 0 && <ParkingInfo title="Distance" value={parking.distance.value < 1000 ? Math.round(parking.distance.value) + " m" : (parking.distance.value / 1000).toFixed(2) + " km"} />}
 
 			<div className="parking-item__btn">
-				<a href={parking.googleMapsLink || `https://www.google.com/maps?q=${parking.Ylat},${parking.Xlong}(Parking ${parking.nom})`} target="_blank" rel="noopener noreferrer">
+				<a
+					href={parking.extraData?.googleMapsLink || `https://www.google.com/maps?q=${parking.latitude.value},${parking.longitude.value}(Parking ${parking.name.value})`}
+					target="_blank"
+					rel="noopener noreferrer">
 					<button className="parking-item__btn-location" onClick={() => setIsOpen(!isOpen)}>
 						<FontAwesomeIcon icon={faLocationDot} />
 					</button>
 				</a>
 				{parking.isFavorite !== undefined && (
-					<button className={`parking-item__btn-favorite ${parking.isFavorite ? " parking-item__btn-favorite--active" : ""}`} onClick={() => setIsOpen(!isOpen)}>
-						<FontAwesomeIcon icon={parking.isFavorite ? faStar : faStarRegular} onClick={() => toggleFavorite(parking.id, parking.isFavorite ? false : true)} />
+					<button className={`parking-item__btn-favorite ${parking.isFavorite ? " parking-item__btn-favorite--active" : ""}`} onClick={() => toggleFavorite(parking.id, parking.isFavorite ? false : true)}>
+						<FontAwesomeIcon icon={parking.isFavorite ? faStar : faStarRegular} />
 					</button>
 				)}
 				<button className="parking-item__btn-more" onClick={() => setIsOpen(!isOpen)}>
@@ -95,19 +146,26 @@ function Parking({ parking, toggleFavorite }) {
 			</div>
 
 			<div ref={contentRef} className={"parking-item__extra-content"} style={isOpen ? { height: contentRef.current.scrollHeight } : {}}>
-				{parking.googleMapsEmbedLink && (
+				{parking.extraData?.googleMapsEmbedLink && (
 					<div className="parking-item__map-container">
-						{isOpen && <iframe title={parking.nom} src={parking.googleMapsEmbedLink} width="100%" height="100%" allowFullScreen loading="lazy" referrerPolicy="no-referrer-when-downgrade"></iframe>}
+						{isOpen && (
+							<iframe title={parking.name.value} src={parking.extraData.googleMapsEmbedLink} width="100%" height="100%" allowFullScreen loading="lazy" referrerPolicy="no-referrer-when-downgrade"></iframe>
+						)}
 					</div>
 				)}
-				{parking.adresse && renderParagraph("Adresse :", parking.adresse)}
-				{parking.nb_pmr > 0 && renderParagraph("Total places PMR :", parking.nb_pmr)}
-				{parking.hauteur_ma > 0 && renderParagraph("Hauteur max :", parking.hauteur_ma + " cm")}
-				{parking.nbre_niv > 0 && renderParagraph("Nombres d'étages :", parking.nbre_niv)}
-				{parking.type_ouvra && renderParagraph("Type :", replaceUnderscores(parking.type_ouvra))}
-				{parking.typo_fonct && renderParagraph("Fonction :", replaceUnderscores(parking.typo_fonct))}
-				{parking && renderParagraph("Propriétaire :", parking.proprietai + (parking.domanialit ? ` (${parking.domanialit})` : ""))}
-				{parking.realTimeDateTime && parking.realTimeDateTime !== null && renderParagraph("Dernière MAJ :", lastUpdate)}
+				<ParkingInfo title="Adresse" value={parking.address.value} />
+				<ParkingInfo title="Total places PMR" value={parking.disabledParkingNumber.value} />
+				<ParkingInfo title="Hauteur max" value={parking.maxHeight.value} unit="cm" />
+				<ParkingInfo title="Véhicules autorisés" value={parking.realTimeData?.allowedVehicleType?.value} />
+				<ParkingInfo title="Nombres d'étages" value={parking.levelNumber.value} />
+				<ParkingInfo title="Surface" value={parking.usableSurfaceArea.value} unit="m2" />
+				<ParkingInfo title="Payant" value={parking.isFree.value === "false" ? "Oui" : "Non"} />
+				<ParkingInfo title="Type" value={replaceUnderscores(parking.parkingType.value)} />
+				<ParkingInfo title="Fonction" value={parking.typology.value} />
+				<ParkingInfo title="Usage" value={parking.typeOfUse.value} />
+				<ParkingInfo title="Propriétaire" value={parking.owner.value + (parking.domaniality && parking.domaniality.value !== "_" ? ` (${parking.domaniality.value})` : "")} />
+				<ParkingInfo title="Numéro Siret" value={parking.siretNumber.value} />
+				{parking.realTimeData?.status.metadata.timestamp && parking.realTimeData?.isLastUpdateLessThanOneHour.value === true && <ParkingInfo title="Dernière MAJ" value={lastUpdate} />}
 			</div>
 		</article>
 	);

@@ -12,12 +12,17 @@ function Dropdown({ label, options, selected, onSelectedChange }) {
 		//close the dropdown
 		setOpen(false);
 	};
+
+	const handleToggle = () => {
+		setOpen((prevOpen) => !prevOpen);
+	};
+
 	//render the dropdown
 	return (
 		<div className="dropdown">
 			<label className="dropdown__label">{label}</label>
 			<span className="dropdown__button-container">
-				<button className="dropdown__button" onClick={() => setOpen(!open)}>
+				<button className="dropdown__button" onClick={handleToggle}>
 					{selected.label}
 				</button>
 				{open && (
@@ -26,8 +31,7 @@ function Dropdown({ label, options, selected, onSelectedChange }) {
 							<div
 								key={option.value + option.direction}
 								className={`dropdown__option ${option.value === selected.value && option.direction === selected.direction ? "selected" : ""}`}
-								onClick={() => handleOnClick(option)}
-							>
+								onClick={() => handleOnClick(option)}>
 								{option.label}
 							</div>
 						))}

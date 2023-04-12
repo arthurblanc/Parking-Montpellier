@@ -4,7 +4,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSquareParking, faLocationArrow, faRotateRight, faMoon, faSun } from "@fortawesome/free-solid-svg-icons";
 import { faGithub, faReact } from "@fortawesome/free-brands-svg-icons";
 
-import Parking from "./components/Parking/index";
+import Parking from "./components/Parking";
 import Dropdown from "./components/Dropdown";
 
 import extraData from "./utils/extradata";
@@ -17,42 +17,42 @@ import "./App.scss";
 let options = [
 	{
 		label: "Nom (A-Z)",
-		value: "nom",
+		value: "name",
 		direction: "asc",
 	},
 	{
 		label: "Nom (Z-A)",
-		value: "nom",
+		value: "name",
 		direction: "desc",
 	},
 	{
 		label: "Places libres (croissant)",
-		value: "realTimeFree",
+		value: ["realTimeData", "availableSpotNumber"],
 		direction: "asc",
 	},
 	{
 		label: "Places libres (décroissant)",
-		value: "realTimeFree",
+		value: ["realTimeData", "availableSpotNumber"],
 		direction: "desc",
 	},
 	{
 		label: "Places totales (croissant)",
-		value: "realTimeTotal",
+		value: ["realTimeData", "totalSpotNumber"],
 		direction: "asc",
 	},
 	{
 		label: "Places totales (décroissant)",
-		value: "realTimeTotal",
+		value: ["realTimeData", "totalSpotNumber"],
 		direction: "desc",
 	},
 	{
 		label: "Pourcentage de place libre (croissant)",
-		value: "realTimeFreePercentage",
+		value: ["realTimeData", "availableSpotPercentage"],
 		direction: "asc",
 	},
 	{
 		label: "Pourcentage de place libre (décroissant)",
-		value: "realTimeFreePercentage",
+		value: ["realTimeData", "availableSpotPercentage"],
 		direction: "desc",
 	},
 ];
@@ -101,136 +101,114 @@ function App() {
 		fetchData();
 	}, []);
 
-	const fetchData = async (bypassCache = false) => {
+	const fetchData = async () => {
 		// Set isLoading to true
 		setIsLoading(true);
-		// Set the cors proxy url
-		const corsProxyUrl = process.env.REACT_APP_CORS_PROXY_URL;
-		//const corsProxyUrl = "http://localhost:4000/";
-		// Add api key for the cors proxy
-		const corsProxyApiKey = process.env.REACT_APP_CORS_PROXY_API_KEY;
-		// URL for geojson data
-		const geoJsonUrl = "https://data.montpellier3m.fr/sites/default/files/ressources/VilleMTP_MTP_ParkingOuv.geojson";
-		// URL for parking data
-		const parkingUrl =
-			"https://data.montpellier3m.fr/api/3/action/package_show?id=90e17b94-989f-4d66-83f4-766d4587bec2&utm_source=Site%20internet&utm_campaign=Clic%20sur%20%3A%20https%3A//data.montpellier3m.fr/api/3/action/package_show/90e17b94-989f-4d66-83f4-766d4587bec2&utm_term=https%3A//data.montpellier3m.fr/api/3/action/package_show/90e17b94-989f-4d66-83f4-766d4587bec2";
+		// URL for offstreetParking data
+		const offstreetParkingUrl = "https://portail-api-data.montpellier3m.fr/offstreetparking?limit=1000";
+		// URL for parkingSpaces data
+		const parkingSpacesUrl = "https://portail-api-data.montpellier3m.fr/parkingspaces?limit=1000";
 
 		try {
-			// Set the headers for the request
-			const headers = {
-				"x-api-key": corsProxyApiKey,
-				"cache-control": bypassCache ? "no-cache" : "",
-			};
-			// Send a GET request to the server to fetch geoJson data
-			const geoJsonResponse = await fetch(`${corsProxyUrl}${geoJsonUrl}`, {
-				headers,
-			});
-			const geoJson = await geoJsonResponse.json();
-			// Send a GET request to the server to fetch parkingXML data
-			const parkingXMLResponse = await fetch(`${corsProxyUrl}${parkingUrl}`, {
-				headers,
-			});
-			const parkingXML = await parkingXMLResponse.json();
-			//filter the parkingRealTimeData
-			const parkingRealTimeData = parkingXML.result.resources.filter((item) => item.id !== "8d478025-4b42-4812-ac80-7a3543e165f7" && item.id !== "3daec4b2-cd07-448d-a9cd-ca18140ce566");
-			// Use promise.all to send multiple async requests to the server in parallel
-			const parkingRealTimePromises = parkingRealTimeData.map(async (item) => {
-				try {
-					// Fetch parking real time data for each parking
-					const parkingXMLResponse = await fetch(`${corsProxyUrl}${item.url}`, {
-						headers,
-					});
-					const xml = await parkingXMLResponse.text();
-					const xmlDoc = new DOMParser().parseFromString(xml, "text/xml");
-					// Get the free and total spots for the parking
-					const free = parseInt(xmlDoc.getElementsByTagName("Free")[0].childNodes[0].nodeValue);
-					const total = parseInt(xmlDoc.getElementsByTagName("Total")[0].childNodes[0].nodeValue);
-					const dateTime = xmlDoc.getElementsByTagName("DateTime")[0].childNodes[0].nodeValue;
-					const freePercentage = Math.round((free / total) * 100);
-					// Calculate the time difference between now and the last update
-					const timeDifference = Math.abs(new Date() - new Date(dateTime));
-					const dayDifference = Math.ceil(timeDifference / (1000 * 60 * 60));
-					const status = total < 1 ? "Close" : xmlDoc.getElementsByTagName("Status")[0].childNodes[0].nodeValue;
-					const parkingRealTime = {
-						name: item.name.replace(/^(Parking (du|des) )|^Parking /i, ""),
-						fullName: item.name,
-						status: dayDifference > 1 ? null : status,
-						dateTime: dayDifference > 1 ? null : dateTime,
-						free: dayDifference > 1 ? null : free,
-						total: total,
-						freePercentage: dayDifference > 1 ? null : freePercentage,
-					};
-					return parkingRealTime;
-				} catch (error) {
-					// Return null if there is an error fetching the parking real time data
-					return null;
-				}
-			});
+			// Fetch data from the offstreet parking and parking spaces API endpoints
+			const [offstreetParkingRes, parkingSpacesRes] = await Promise.all([fetch(offstreetParkingUrl), fetch(parkingSpacesUrl)]);
+			// Parse the response data from the API endpoints
+			const [offstreetParkingData, parkingSpacesData] = await Promise.all([offstreetParkingRes.json(), parkingSpacesRes.json()]);
 
-			// Wait for all the promises to resolve and store the result in formatedParkingRealTimeData
-			const formatedParkingRealTimeData = await Promise.all(parkingRealTimePromises);
-			// Filter out any null items from formatedParkingRealTimeData
-			const allParkingRealTimeData = formatedParkingRealTimeData.filter((item) => item !== null);
-			// Filter out the feature with id "34172_PEYROU" from the geoJsonData
-			const geoJsonData = geoJson.features.filter((item) => item.properties.id !== "34172_PEYROU");
+			// Transform the offstreet parking data by adding additional properties
+			const offstreetParkingArray = offstreetParkingData?.map((parking) => {
+				// Calculate the percentage of free spots in the parking lot
+				const freePercentage = Math.round((parking.availableSpotNumber.value / parking.totalSpotNumber.value) * 100);
+				// Determine the status of the parking based on the number of available spots
+				const status = parking.availableSpotNumber.value < 1 ? "Close" : parking.status.value;
 
-			let allParkingsData = geoJsonData.map((feature) => {
-				if (!feature.properties.nom) {
-					// If feature doesn't have a "nom" property, return null
-					return null;
-				}
+				// Calculate the UTC date of the last status update for the parking lot
+				const PARIS_TIMEZONE_OFFSET = 120; // Time difference between Paris and UTC in minutes
+				const date = new Date(parking.status.metadata.timestamp.value);
+				const utcDate = new Date(date.getTime() - PARIS_TIMEZONE_OFFSET * 60 * 1000);
 
-				const { id } = feature.properties;
-				const extraDataItem = extraData.find((item) => item.id === id);
-				// Check if the current feature is in the favorites stored in Local Storage
-				const favoritesParkings = JSON.parse(localStorage.getItem("Parking-Montpellier-Favorites") || "[]");
-				const isFavorite = favoritesParkings.includes(id);
-				// Find the matching parking real time data based on name
-				const parkingRealTime = allParkingRealTimeData.find((item) => {
-					const parkingName = feature.properties.nom.toLowerCase();
-					const realTimeName = item.name.toLowerCase();
-					// Check if the parking name or real time name contains the other name or if it's one of the specified cases
-					return (
-						realTimeName.includes(parkingName) ||
-						parkingName.includes(realTimeName) ||
-						(parkingName === "viccarello" && realTimeName === "vicarello") ||
-						(parkingName === "saint roch" && realTimeName === "gare") ||
-						(parkingName === "circé odysseum" && realTimeName === "circe") ||
-						(parkingName === "saint-jean-le-sec" && realTimeName === "saint jean le sec")
-					);
-				});
-				// Get the longitude and latitude from the feature properties or the geometry coordinates
-				const { Xlong: userLongitude, Ylat: userLatitude, places_pub: publicPlaces, nb_places: totalPlaces } = feature.properties;
-
-				// Return the data with the added properties
+				// Add the calculated properties to the parking object
 				return {
-					...feature.properties,
-					adresse: feature.properties.adresse.charAt(0).toUpperCase() + feature.properties.adresse.slice(1) || null,
-					Xlong: userLongitude || feature.geometry.coordinates[0],
-					Ylat: userLatitude || feature.geometry.coordinates[1],
-					googleMapsLink: extraDataItem.googleMapsLink || null,
-					googleMapsEmbedLink: extraDataItem.googleMapsEmbedLink || null,
-					modName: extraDataItem.modName || null,
-					isFavorite,
-					realTimeName: parkingRealTime ? parkingRealTime.name : null,
-					realTimeFullName: parkingRealTime ? parkingRealTime.fullName : null,
-					realTimeStatus: parkingRealTime ? parkingRealTime.status : null,
-					realTimeDateTime: parkingRealTime ? parkingRealTime.dateTime : null,
-					realTimeFree: parkingRealTime ? parkingRealTime.free : null,
-					realTimeTotal: parkingRealTime ? parkingRealTime.total : publicPlaces > 0 ? publicPlaces : totalPlaces,
-					realTimeFreePercentage: parkingRealTime ? parkingRealTime.freePercentage : null,
+					...parking,
+					availableSpotPercentage: { type: "Number", value: freePercentage, metadata: {} },
+					status: { type: "text", value: status, metadata: { ...parking.status.metadata } },
+					isLastUpdateLessThanOneHour: {
+						type: "Boolean",
+						value: utcDate > Date.now() - 3600000,
+						metadata: { ...parking.status.metadata },
+					},
 				};
 			});
+
+			// Retrieve the favorites parking from local storage or an empty array
+			const favoritesParkings = JSON.parse(localStorage.getItem("Parking-Montpellier-Favorites") || "[]");
+
+			// Function to find and return an off-street parking object that matches a given parking object based on different criteria
+			const getOffstreetParking = (parking, offstreetParkingArray) => {
+				// Find an off-street parking that matches the given parking's longitude and latitude or its ID, or that has a similar name as the parking
+				const foundParking = offstreetParkingArray.find(
+					(offstreetParking) =>
+						(offstreetParking.location.value.coordinates[0] === +parking.longitude.value && offstreetParking.location.value.coordinates[1] === +parking.latitude.value) ||
+						(offstreetParking.id === "urn:ngsi-ld:parking:008" && parking.id === "urn:ngsi-ld:ParkingSpace:34172_SAINTRO") ||
+						(offstreetParking.id === "urn:ngsi-ld:parking:019" && parking.id === "urn:ngsi-ld:ParkingSpace:34057_VICCAR") ||
+						offstreetParking.name.value.toLowerCase().includes(parking.name.value.toLowerCase()) ||
+						parking.name.value.toLowerCase().includes(offstreetParking.name.value.toLowerCase())
+				);
+				// Return the found off-street parking or null
+				return foundParking;
+			};
+
+			// Filter out a specific parking ID from the parking spaces data and store it in a new variable
+			const filteredParkingData = parkingSpacesData.filter((item) => item.id !== "urn:ngsi-ld:ParkingSpace:34172_PEYROU");
+
+			// Map over the filtered parking spaces data to add some properties to each parking object and return a new merged parking data array
+			let mergedParkingData = filteredParkingData.map((parking) => {
+				// Get an off-street parking object that matches the current parking object or create a fake one with some default values
+				const offstreetParking = getOffstreetParking(parking, offstreetParkingArray);
+				// Check if the current parking is a favorite or not
+				const isFavorite = favoritesParkings.includes(parking.id);
+				// If an off-street parking object is found, use its data as real-time data for the current parking object, otherwise create fake real-time data
+				const realTimeData = offstreetParking
+					? offstreetParking
+					: {
+							status: { value: null, metadata: {} },
+							availableSpotNumber: { value: null },
+							totalSpotNumber: { value: parking.parkingSpaceNumber.value },
+							availableSpotPercentage: { value: null },
+							isLastUpdateLessThanOneHour: { value: false },
+					  };
+				// Set the Xlong and Ylat properties of the current parking object to the ones from the found off-street parking object or the original parking object
+				const Xlong = offstreetParking ? offstreetParking.location.value.coordinates[0] : parking.longitude.value;
+				const Ylat = offstreetParking ? offstreetParking.location.value.coordinates[1] : parking.latitude.value;
+				// Find the extraData object that matches the parking id, if any, and add it to the current parking object as a new property
+				const matchingExtraData = extraData.find((data) => data.id === parking.id);
+
+				return {
+					...parking,
+					Xlong,
+					Ylat,
+					isFavorite,
+					realTimeData,
+					...(matchingExtraData && { extraData: matchingExtraData }),
+				};
+			});
+
 			// Check if userLatitude and userLongitude are present
 			if (userLatitude && userLongitude) {
-				// If present, map over allParkingsData and add a new property "distance" with the distance value calculated using getDistance function
-				allParkingsData = allParkingsData.map((parking) => {
-					return { ...parking, distance: getDistance(userLatitude, userLongitude, parking.Ylat, parking.Xlong) };
+				// Map over the mergedParkingData array and add a new "distance" property to each object
+				const updatedParkingData = mergedParkingData.map((parking) => {
+					// Calculate the distance between user's location and parking's location using the getDistance function
+					const distance = { type: "Number", value: getDistance(userLatitude, userLongitude, parking.Ylat, parking.Xlong), metadata: {} };
+					// Return the updated parking object with the new "distance" property
+					return { ...parking, distance };
 				});
+				// Update mergedParkingData with the new distance values
+				mergedParkingData = updatedParkingData;
 			}
-			// Sort allParkingsData by ascending order of "nom" property
-			sortBy(allParkingsData, "asc", "nom");
-			// Set isLoading to false
+			// Sort mergedParkingData by ascending order of "name" property using the sortBy function
+			sortBy(mergedParkingData, "asc", "name");
+
+			// Set isLoading to false to indicate that the data has finished loading
 			setIsLoading(false);
 		} catch (error) {
 			return null;
@@ -240,22 +218,34 @@ function App() {
 	const sortBy = (parkingArray, direction, key) => {
 		// Find the selected option based on the given direction and key
 		const selectedOption = options.find((option) => option.direction === direction && option.value === key);
-		// set the selected sort option
+		// Set the selected sort option
 		setSelectedSortOption(selectedOption);
-		// set a boolean value indicating whether the data is sorted by distance or not
+		// Set a boolean value indicating whether the data is sorted by distance or not
 		setIsSortedByDistance(key === "distance" ? true : false);
-		// sort the parking array based on the direction and key
-		setAllParkingsData(
-			[...parkingArray].sort((a, b) => {
-				if (direction === "asc") {
-					// sort in ascending order
-					return a[key] < b[key] ? -1 : a[key] > b[key] ? 1 : 0;
-				} else {
-					// sort in descending order
-					return a[key] > b[key] ? -1 : a[key] < b[key] ? 1 : 0;
+		// Sort the parking array based on the direction and key
+		const sortByKey = (arr, key, direction) => {
+			// Create a copy of the array to avoid modifying the original data
+			const sortedArr = [...arr].sort((a, b) => {
+				// Determine the compare value based on the direction
+				const compareValue = direction === "asc" ? 1 : -1;
+
+				if (typeof key === "string") {
+					// If the key is a string, compare the values of the corresponding properties
+					const keyValA = /^\d+$/.test(a[key].value) ? Number(a[key].value) : a[key].value;
+					const keyValB = /^\d+$/.test(b[key].value) ? Number(b[key].value) : b[key].value;
+					return keyValA.localeCompare(keyValB) * compareValue;
+				} else if (Array.isArray(key)) {
+					// If the key is an array, compare the values of the nested properties
+					const [firstKey, secondKey] = key;
+					const keyValA = /^\d+$/.test(a[firstKey][secondKey].value) ? Number(a[firstKey][secondKey].value) : a[firstKey][secondKey].value;
+					const keyValB = /^\d+$/.test(b[firstKey][secondKey].value) ? Number(b[firstKey][secondKey].value) : b[firstKey][secondKey].value;
+					return (keyValA - keyValB) * compareValue;
 				}
-			})
-		);
+			});
+			return sortedArr;
+		};
+		// Update the state of the parking data with the sorted data
+		setAllParkingsData(sortByKey(parkingArray, key, direction));
 	};
 
 	const handleSortOptionChange = (option) => {
@@ -322,7 +312,7 @@ function App() {
 					setUserLongitude(position.coords.longitude);
 					// calculate the distance between the user's location and each parking location
 					const parkingWithDistance = allParkingsData.map((parking) => {
-						return { ...parking, distance: getDistance(position.coords.latitude, position.coords.longitude, parking.Ylat, parking.Xlong) };
+						return { ...parking, distance: { type: "Number", value: getDistance(position.coords.latitude, position.coords.longitude, parking.Ylat, parking.Xlong), metadata: {} } };
 					});
 					// add the new option for sorting by distance if it doesn't already exist
 					if (!options.some((option) => option.value === newOption.value)) {
@@ -351,12 +341,12 @@ function App() {
 
 	const renderParkingLists = (data, filterFn, searchInput, titleSingular, titlePlural = titleSingular) => {
 		// filter the data based on the filter function
-		const filteredData = data.filter((parking) => parking && filterFn(parking.realTimeStatus, parking.isFavorite));
+		const filteredData = data.filter((parking) => parking && filterFn(parking.isFavorite, parking.realTimeData?.status.value, parking.realTimeData?.isLastUpdateLessThanOneHour.value));
 		// return null if there are no filtered data
 		if (!filteredData.length) return null;
 		// filter the data based on the search input
 		const filteredWithSearch = filteredData.filter(
-			(parking) => parking.nom.toLowerCase().includes(searchInput.toLowerCase()) || (parking.modName && parking.modName.toLowerCase().includes(searchInput.toLowerCase()))
+			(parking) => parking.name.value.toLowerCase().includes(searchInput.toLowerCase()) || (parking.extraData.modName && parking.extraData.modName.toLowerCase().includes(searchInput.toLowerCase()))
 		);
 		// create a list of parking cards
 		const parkingCards = filteredWithSearch.map((parking) => <Parking key={parking.id} parking={parking} toggleFavorite={toggleFavorite} />);
@@ -396,7 +386,7 @@ function App() {
 						</>
 					)}
 
-					<button className="button" onClick={() => fetchData(true)}>
+					<button className="button" onClick={fetchData}>
 						<FontAwesomeIcon icon={faRotateRight} style={{ marginRight: "1rem" }} />
 						Actualiser les données
 					</button>
@@ -406,12 +396,25 @@ function App() {
 							renderParkingLists(allParkingsData, () => true, searchInput, "Parking", "Parkings du plus proche au plus éloigné")
 						) : (
 							<>
-								{renderParkingLists(allParkingsData, (status, isFavorite) => isFavorite === true, searchInput, "Parking favori", "Parkings favoris")}
-								{renderParkingLists(allParkingsData, (status, isFavorite) => status === "Open" && isFavorite === false, searchInput, "Parking en direct", "Parkings en direct")}
-								{renderParkingLists(allParkingsData, (status, isFavorite) => status === null && isFavorite === false, searchInput, "Autre parking", "Autres parkings")}
+								{renderParkingLists(allParkingsData, (isFavorite, status, isLastUpdateLessThanOneHour) => isFavorite === true, searchInput, "Parking favori", "Parkings favoris")}
+
 								{renderParkingLists(
 									allParkingsData,
-									(status, isFavorite) => status !== "Open" && status !== null && isFavorite === false,
+									(isFavorite, status, isLastUpdateLessThanOneHour) => isFavorite === false && status === "Open" && isLastUpdateLessThanOneHour === true,
+									searchInput,
+									"Parking en direct",
+									"Parkings en direct"
+								)}
+								{renderParkingLists(
+									allParkingsData,
+									(isFavorite, status, isLastUpdateLessThanOneHour) => isFavorite === false && (status === null || status === "Open") && isLastUpdateLessThanOneHour === false,
+									searchInput,
+									"Autre parking",
+									"Autres parkings"
+								)}
+								{renderParkingLists(
+									allParkingsData,
+									(isFavorite, status, isLastUpdateLessThanOneHour) => isFavorite === false && status !== "Open" && status !== null,
 									searchInput,
 									"Parking fermé ou complet",
 									"Parkings fermés ou complets"
